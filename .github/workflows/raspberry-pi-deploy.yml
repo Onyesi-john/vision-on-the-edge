@@ -1,0 +1,53 @@
+name: Build and Deploy to Raspberry Pi
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Enable multi-arch builds
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build ARM64 image for Raspberry Pi and export as docker format
+      - name: Build ARM64 image
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            -t object-detection:latest \
+            --output type=docker \
+            .
+
+      # Save image to tarball
+      - name: Save Docker image
+        run: docker save object-detection:latest -o object-detection.tar
+
+      # Copy image tarball to Raspberry Pi
+      - name: Transfer image to Raspberry Pi
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          source: "object-detection.tar"
+          target: "/home/${{ secrets.DEPLOY_USER }}/object-detection-app/"
+
+      # Deploy on Raspberry Pi
+      - name: Deploy on Raspberry Pi
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            cd /home/${{ secrets.DEPLOY_USER }}/object-detection-app
+            docker load -i object-detection.tar
+            ./deploy.sh
