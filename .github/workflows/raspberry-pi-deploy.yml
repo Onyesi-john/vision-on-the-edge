@@ -31,6 +31,10 @@ jobs:
       - name: Save Docker image
         run: docker save object-detection:latest -o object-detection.tar
 
+      # Fix permissions so SCP can access the tarball
+      - name: Fix tarball permissions
+        run: chmod 644 object-detection.tar
+
       # Copy image tarball to Raspberry Pi
       - name: Transfer image to Raspberry Pi
         uses: appleboy/scp-action@v0.1.7
@@ -52,3 +56,7 @@ jobs:
             cd /home/${{ secrets.DEPLOY_USER }}/object-detection-app
             docker load -i object-detection.tar
             ./deploy.sh
+
+      # Optional cleanup
+      - name: Clean up tarball
+        run: rm -f object-detection.tar
