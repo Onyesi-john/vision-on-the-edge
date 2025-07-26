@@ -24,7 +24,8 @@ jobs:
             --platform linux/arm64 \
             -t object-detection:latest \
             --output type=docker \
-            .
+            -f app/Dockerfile \
+            app/
 
       # Save image to tarball
       - name: Save Docker image
