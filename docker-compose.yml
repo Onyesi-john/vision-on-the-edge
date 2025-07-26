@@ -1,0 +1,44 @@
+#version: '3'
+services:
+  nginx:
+    build: ./nginx
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/templates
+    environment:
+      - ACTIVE_APP=app_green  # Default to green
+    networks:
+      - internal
+    restart: always
+
+  app_green:
+    build: ./app
+    environment:
+      - YOLO_CONFIG_DIR=/app/config
+      - ACTIVE=true  # Mark as active
+    volumes:
+      - app_config_green:/app/config
+    devices:
+      - "/dev/video0:/dev/video0"  # Camera access ONLY for active
+    networks:
+      - internal
+
+  app_blue:
+    build: ./app
+    environment:
+      - YOLO_CONFIG_DIR=/app/config
+      - ACTIVE=false  # Mark as inactive
+    volumes:
+      - app_config_blue:/app/config
+    # NO camera access for inactive
+    networks:
+      - internal
+
+networks:
+  internal:
+   external: true
+
+volumes:
+  app_config_green:
+  app_config_blue:

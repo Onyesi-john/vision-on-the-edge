@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Object Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .video-container {
+            position: relative;
+            width: 80%;
+            max-width: 1280px;  /* Adjust max-width for larger screen sizes */
+            margin-top: 20px;
+        }
+        img {
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+            display: block;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            font-weight: bold;
+            color: #ff5722;
+        }
+        .error-message {
+            font-size: 20px;
+            color: red;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🔍 Real-Time Object Detection</h1>
+    
+    <div class="container">
+        <div class="video-container">
+            <span class="loading" id="loadingText">Loading Video...</span>
+            <img src="{{ url_for('video_feed') }}" id="videoStream" onload="hideLoading()" onerror="showError()">
+        </div>
+
+        <div id="errorContainer" class="error-message" style="display: none;">
+            <p>Error: Could not load video stream. Please check the connection.</p>
+        </div>
+    </div>
+
+    <script>
+        function hideLoading() {
+            document.getElementById("loadingText").style.display = "none";
+        }
+
+        function showError() {
+            document.getElementById("loadingText").style.display = "none";
+            document.getElementById("errorContainer").style.display = "block";
+        }
+    </script>
+
+</body>
+</html>
