@@ -22,7 +22,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push ARM64 images to Docker Hub
+      - name: Build and push ARM64 image to Docker Hub
         run: |
           docker buildx build \
             --platform linux/arm64 \
