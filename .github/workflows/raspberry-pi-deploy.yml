@@ -23,7 +23,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           registry: docker.io
 
-      - name: Build and push ARM64 image to Docker Hub
+      - name: Build and push ARM64 images to Docker Hub
         run: |
           docker buildx build \
             --platform linux/arm64 \
