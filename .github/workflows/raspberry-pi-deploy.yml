@@ -28,6 +28,6 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
-            -t ${{ secrets.DOCKER_USERNAME }}/vision-on-edge:latest \
+            -t ${{ secrets.DOCKER_USERNAME }}/edge_deployment:latest \
             -f app/Dockerfile \
             app/
