@@ -30,6 +30,6 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             --push \
-            -t ${{ secrets.DOCKER_USERNAME }}/object-detection:latest \
+            -t ${{ secrets.DOCKER_USERNAME }}/vision-on-edge:latest \
             -f app/Dockerfile \
             app/
