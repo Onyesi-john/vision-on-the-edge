@@ -93,7 +93,7 @@ if IS_ACTIVE:
     fps = 0
 
     def generate_frames():
-        nonlocal last_time, frame_count, fps
+        global last_time, frame_count, fps
         while True:
             if result_frame is None:
                 continue
@@ -112,6 +112,7 @@ if IS_ACTIVE:
             _, buffer = cv2.imencode('.jpg', out)
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+
 else:
     print("[INFO] Running in INACTIVE mode (no camera, no inference)")
     def generate_frames():
