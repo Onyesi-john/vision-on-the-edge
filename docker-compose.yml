@@ -1,4 +1,4 @@
-#version: '3'
+version: '3'
 services:
   nginx:
     build: ./nginx
@@ -6,8 +6,8 @@ services:
       - "8000:8000"
     volumes:
       - ./nginx/conf.d:/etc/nginx/templates
-    environment:
-      - ACTIVE_APP=app_green  # Default to green
+    env_file:
+      - .env
     networks:
       - internal
     restart: always
@@ -16,28 +16,47 @@ services:
     build: ./app
     environment:
       - YOLO_CONFIG_DIR=/app/config
-      - ACTIVE=true  # Mark as active
+      - ACTIVE=true
+      - VIDEO_DEVICE=0
+      - STREAM_FPS=5   # Limit FPS for app_green
     volumes:
       - app_config_green:/app/config
+      - ./app/best.pt:/app/best.pt:ro
     devices:
-      - "/dev/video0:/dev/video0"  # Camera access ONLY for active
+      - "/dev/video0:/dev/video0"
     networks:
       - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
   app_blue:
     build: ./app
     environment:
       - YOLO_CONFIG_DIR=/app/config
-      - ACTIVE=false  # Mark as inactive
+      - ACTIVE=true
+      - VIDEO_DEVICE=2
+      - STREAM_FPS=5   # Limit FPS for app_blue
     volumes:
       - app_config_blue:/app/config
-    # NO camera access for inactive
+      - ./app/best.pt:/app/best.pt:ro
+    devices:
+      - "/dev/video2:/dev/video2"
     networks:
       - internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
 networks:
   internal:
-   external: true
+    external: true
 
 volumes:
   app_config_green:
