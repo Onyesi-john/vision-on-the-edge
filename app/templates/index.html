@@ -30,7 +30,10 @@
 
     <script>
         function hideLoading() { document.getElementById("loadingText").style.display = "none"; }
-        function showError() { document.getElementById("loadingText").style.display = "none"; document.getElementById("errorContainer").style.display = "block"; }
+        function showError() { 
+            document.getElementById("loadingText").style.display = "none"; 
+            document.getElementById("errorContainer").style.display = "block"; 
+        }
 
         let lastInstanceId = null;
 
@@ -45,19 +48,13 @@
                 if (lastInstanceId === null) {
                     lastInstanceId = data.instance_id;
                 } else if (lastInstanceId !== data.instance_id) {
-                    console.log("Container changed → reconnecting video stream");
-                    reconnectVideoStream();
+                    console.log("Container changed → reloading entire page");
                     lastInstanceId = data.instance_id;
+                    location.reload(); // FULL page reload to pick up new HTML/CSS
                 }
             } catch (err) {
                 console.log("Error checking status:", err);
             }
-        }
-
-        function reconnectVideoStream() {
-            const img = document.getElementById("videoStream");
-            document.getElementById("loadingText").style.display = "block";
-            img.src = "/video_feed?t=" + new Date().getTime(); // force new connection
         }
 
         setInterval(checkAppStatus, 2000);
