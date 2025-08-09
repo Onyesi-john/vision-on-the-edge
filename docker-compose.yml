@@ -1,58 +1,66 @@
-version: '3'
+version: '3.8'
+
 services:
+
   nginx:
     build: ./nginx
     ports:
       - "8000:8000"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/templates
-    env_file:
-      - .env
+      - ./nginx/includes/active.conf:/etc/nginx/conf.d/active.conf:ro
     networks:
       - internal
     restart: always
 
   app_green:
-    build: ./app
+    build:
+      context: ./app
+      args:
+        - VIDEO_GID=44
     environment:
-      - YOLO_CONFIG_DIR=/app/config
       - ACTIVE=true
-      - VIDEO_DEVICE=0
-      - STREAM_FPS=5   # Limit FPS for app_green
+      - VIDEO_DEVICE=/dev/video0  # Direct device path here
+      - STREAM_FPS=5
+      - OPENCV_LOG_LEVEL=ERROR
+    devices:
+      - "/dev/video0:/dev/video0"   # Pass through camera device
     volumes:
       - app_config_green:/app/config
       - ./app/best.pt:/app/best.pt:ro
-    devices:
-      - "/dev/video0:/dev/video0"
     networks:
       - internal
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 5
-      start_period: 5s
+      start_period: 45s
+    restart: unless-stopped
 
   app_blue:
-    build: ./app
+    build:
+      context: ./app
+      args:
+        - VIDEO_GID=44
     environment:
-      - YOLO_CONFIG_DIR=/app/config
       - ACTIVE=true
-      - VIDEO_DEVICE=2
-      - STREAM_FPS=5   # Limit FPS for app_blue
+      - VIDEO_DEVICE=/dev/video0
+      - STREAM_FPS=5
+      - OPENCV_LOG_LEVEL=ERROR
+    devices:
+      - "/dev/video0:/dev/video0"
     volumes:
       - app_config_blue:/app/config
       - ./app/best.pt:/app/best.pt:ro
-    devices:
-      - "/dev/video2:/dev/video2"
     networks:
       - internal
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 5
-      start_period: 5s
+      start_period: 45s
+    restart: unless-stopped
 
 networks:
   internal:

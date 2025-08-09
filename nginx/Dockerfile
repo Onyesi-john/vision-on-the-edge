@@ -1,7 +1,10 @@
 FROM nginx:alpine
-# Install envsubst for template processing
-RUN apk add --no-cache gettext
-# Remove default config
+
+# No need to install gettext anymore unless you still want it for something else
+# RUN apk add --no-cache gettext
+
+# Remove default config to avoid conflicts
 RUN rm /etc/nginx/conf.d/default.conf
-# Command to process template on startup
-CMD ["sh", "-c", "envsubst '${ACTIVE_APP}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]
+
+# Start nginx normally in the foreground
+CMD ["nginx", "-g", "daemon off;"]

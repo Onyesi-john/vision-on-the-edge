@@ -1,64 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Real-Time Object Processing</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; margin: 0; padding: 20px; }
-        h1 { color: #333; }
-        .container { display: flex; flex-direction: column; align-items: center; }
-        .video-container { position: relative; width: 80%; max-width: 1280px; margin-top: 20px; }
-        img { width: 100%; border-radius: 10px; box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2); display: block; }
-        .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px; font-weight: bold; color: #ff5722; }
-        .error-message { font-size: 20px; color: red; margin-top: 20px; }
-    </style>
+<meta charset="UTF-8">
+<title>Live Camera</title>
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 40px;
+        min-height: 100vh;
+    }
+
+    #toggleStreamBtn {
+        padding: 10px 20px;
+        font-size: 16px;
+        color: white;
+        background-color: #4CAF50;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.3s;
+        margin-bottom: 20px;
+    }
+    #toggleStreamBtn:hover {
+        background-color: #45a049;
+    }
+
+    .video-container {
+        position: relative;
+        background-color: #111;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        max-width: 800px;
+        width: 90%;
+    }
+
+    #videoStream {
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+
+    .overlay {
+        position: absolute;
+        top: 0; left: 0;
+        right: 0; bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,0.6);
+        color: white;
+        font-size: 18px;
+    }
+
+    .spinner {
+        border: 4px solid rgba(255,255,255,0.2);
+        border-left-color: white;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin-right: 10px;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .error-message {
+        background: rgba(255,0,0,0.8);
+        padding: 15px;
+        border-radius: 6px;
+        margin-top: 20px;
+    }
+</style>
 </head>
 <body>
 
-    <h1>Real-Time Object Processing</h1>
-    
-    <div class="container">
-        <div class="video-container">
-            <span class="loading" id="loadingText">Loading Video...</span>
-            <img src="{{ url_for('video_feed') }}" id="videoStream" onload="hideLoading()" onerror="showError()" />
-        </div>
-        <div id="errorContainer" class="error-message" style="display: none;">
-            <p>Error: Could not load video stream. Please check the connections.</p>
-        </div>
+<button id="toggleStreamBtn">Show Live Camera</button>
+
+<div class="video-container" id="videoContainer" style="display:none;">
+    <div id="videoOverlay" class="overlay">
+        <div class="spinner"></div>
+        <div>Loading Video Stream...</div>
     </div>
+    <img id="videoStream" onload="onVideoLoad()" onerror="onVideoError()">
+</div>
 
-    <script>
-        function hideLoading() { document.getElementById("loadingText").style.display = "none"; }
-        function showError() { 
-            document.getElementById("loadingText").style.display = "none"; 
-            document.getElementById("errorContainer").style.display = "block"; 
-        }
+<div id="errorContainer" class="error-message" style="display:none;">
+    Could not connect to the video stream.
+</div>
 
-        let lastInstanceId = null;
+<script>
+const toggleBtn = document.getElementById('toggleStreamBtn');
+const videoContainer = document.getElementById('videoContainer');
+const videoStreamEl = document.getElementById('videoStream');
+const overlayElement = document.getElementById('videoOverlay');
+const errorContainer = document.getElementById('errorContainer');
 
-        async function checkAppStatus() {
-            try {
-                const healthResp = await fetch("/health");
-                if (!healthResp.ok) return;
+toggleBtn.addEventListener('click', () => {
+    if (videoContainer.style.display === "none") {
+        videoContainer.style.display = "block";
+        videoStreamEl.src = "{{ url_for('video_feed') }}?" + new Date().getTime();
+        toggleBtn.textContent = "Hide Live Camera";
+        overlayElement.style.display = "flex";
+        errorContainer.style.display = "none";
+    } else {
+        videoContainer.style.display = "none";
+        videoStreamEl.src = "";
+        toggleBtn.textContent = "Show Live Camera";
+    }
+});
 
-                const versionResp = await fetch("/version");
-                const data = await versionResp.json();
+function onVideoLoad() {
+    overlayElement.style.display = "none";
+    errorContainer.style.display = "none";
+}
 
-                if (lastInstanceId === null) {
-                    lastInstanceId = data.instance_id;
-                } else if (lastInstanceId !== data.instance_id) {
-                    console.log("Container changed → reloading entire page");
-                    lastInstanceId = data.instance_id;
-                    location.reload(); // FULL page reload to pick up new HTML/CSS
-                }
-            } catch (err) {
-                console.log("Error checking status:", err);
-            }
-        }
-
-        setInterval(checkAppStatus, 2000);
-    </script>
+function onVideoError() {
+    overlayElement.style.display = "none";
+    errorContainer.style.display = "block";
+}
+</script>
 
 </body>
 </html>
