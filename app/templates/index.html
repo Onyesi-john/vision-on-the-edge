@@ -1,131 +1,827 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Live Camera</title>
-<style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>YOLO Detection Stream</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    :root {
+      --primary-color: #0066ff;
+      --primary-dark: #0055dd;
+      --bg-dark: #1a1a1a;
+      --bg-light: #f8f9fa;
+      --text-dark: #222;
+      --text-light: #fff;
+      --border-color: #ddd;
+      --success-color: #28a745;
+      --error-color: #dc3545;
+      --warning-color: #ffc107;
+      --sidebar-width: 350px;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
     body {
-        margin: 0;
-        font-family: Arial, sans-serif;
-        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-        color: white;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding-top: 40px;
-        min-height: 100vh;
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-light);
+      color: var(--text-dark);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
     }
 
-    #toggleStreamBtn {
-        padding: 10px 20px;
-        font-size: 16px;
-        color: white;
-        background-color: #4CAF50;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: background 0.3s;
-        margin-bottom: 20px;
+    header {
+      background: #fff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    #toggleStreamBtn:hover {
-        background-color: #45a049;
+
+    header h1 {
+      margin: 0;
+      font-size: 1.4rem;
+      color: var(--text-dark);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .icons i {
+      cursor: pointer;
+      color: #666;
+      font-size: 1.2rem;
+      transition: all 0.2s;
+    }
+
+    .icons i:hover {
+      color: var(--primary-color);
+      transform: scale(1.1);
+    }
+
+    .layout-container {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      padding: 0;
+      position: relative;
+    }
+
+    .video-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      background: #f0f2f5;
+      position: relative;
+      transition: all 0.3s ease;
     }
 
     .video-container {
-        position: relative;
-        background-color: #111;
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        max-width: 800px;
-        width: 90%;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
-    #videoStream {
-        display: block;
+    #videoFeed {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .video-overlay {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      right: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      color: white;
+      pointer-events: auto;
+    }
+
+    .status-icon {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--success-color);
+    }
+
+    .video-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .video-controls button {
+      pointer-events: auto;
+    }
+
+    .toggle-btn {
+      padding: 10px 20px;
+      border: none;
+      background: var(--primary-color);
+      color: var(--text-light);
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: all 0.2s;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toggle-btn:hover {
+      background: var(--primary-dark);
+      transform: translateY(-2px);
+    }
+
+    .toggle-btn.secondary {
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--text-dark);
+    }
+
+    .toggle-btn.secondary:hover {
+      background: #fff;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-width);
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--border-color);
+      background: #fff;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar.collapsed {
+      width: 40px;
+      border-left: 1px solid var(--border-color);
+    }
+
+    .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      border-bottom: 1px solid var(--border-color);
+      background: #f8f9fa;
+    }
+
+    .sidebar-header h3 {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1.1rem;
+    }
+
+    .collapse-btn {
+      background: none;
+      border: no ne;
+      cursor: pointer;
+      color: #666;
+      font-size: 1.2rem;
+      transition: all 0.2s;
+    }
+
+    .collapse-btn:hover {
+      color: var(--primary-color);
+      transform: scale(1.1);
+    }
+
+    .stats, .logs {
+      padding: 15px;
+    }
+
+    .stats {
+      background: var(--bg-light);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .stat {
+      padding: 12px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      font-weight: bold;
+      font-size: 1.4rem;
+      color: var(--primary-color);
+    }
+
+    .logs {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      background: var(--bg-dark);
+    }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      background: #2d2d2d;
+      border-bottom: 1px solid #444;
+    }
+
+    .log-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .log-controls button {
+      background: transparent;
+      border: 1px solid #666;
+      color: #ccc;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+
+    .log-controls button:hover {
+      background: #444;
+      color: #fff;
+    }
+
+    #logContainer {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 15px;
+      font-family: 'Fira Code', 'Courier New', monospace;
+      color: #e9ecef;
+    }
+
+    /* Object badges */
+    .object-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 15px;
+    }
+
+    .object-badge {
+      border-radius: 16px;
+      padding: 5px 12px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--primary-color);
+      color: #fff;
+    }
+
+    /* Log styles */
+    .log-entry { 
+      margin: 8px 0;
+      padding: 8px;
+      border-left: 3px solid transparent;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+    
+    .log-info { 
+      border-left-color: var(--success-color);
+      color: #90ee90;
+    }
+    
+    .log-error { 
+      border-left-color: var(--error-color);
+      color: #ff8e8e;
+    }
+    
+    .log-detection { 
+      border-left-color: var(--primary-color);
+      color: #7fbfff;
+    }
+    
+    .log-warning { 
+      border-left-color: var(--warning-color);
+      color: #ffd67f;
+    }
+
+    /* Scrollbar styling */
+    #logContainer::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #logContainer::-webkit-scrollbar-track {
+      background: #2d2d2d;
+      border-radius: 4px;
+    }
+
+    #logContainer::-webkit-scrollbar-thumb {
+      background: #555;
+      border-radius: 4px;
+    }
+
+    #logContainer::-webkit-scrollbar-thumb:hover {
+      background: #777;
+    }
+
+    /* Responsive */
+    @media (max-width: 1000px) {
+      .layout-container { 
+        flex-direction: column; 
+      }
+      
+      .sidebar {
         width: 100%;
-        height: auto;
-    }
-
-    .overlay {
-        position: absolute;
-        top: 0; left: 0;
-        right: 0; bottom: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0,0,0,0.6);
-        color: white;
-        font-size: 18px;
-    }
-
-    .spinner {
-        border: 4px solid rgba(255,255,255,0.2);
-        border-left-color: white;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-        margin-right: 10px;
-    }
-
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-
-    .error-message {
-        background: rgba(255,0,0,0.8);
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+        max-height: 40vh;
+      }
+      
+      .video-section {
         padding: 15px;
-        border-radius: 6px;
-        margin-top: 20px;
+      }
     }
-</style>
+
+    @media (max-width: 600px) {
+      header {
+        padding: 10px 15px;
+      }
+      
+      header h1 {
+        font-size: 1.2rem;
+      }
+      
+      .stat-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .sidebar {
+        max-height: 45vh;
+      }
+      
+      .toggle-btn {
+        padding: 8px 16px;
+        font-size: 0.9rem;
+      }
+    }
+
+    /* Collapsed sidebar state */
+    .sidebar-content {
+      overflow: hidden;
+      transition: opacity 0.3s ease;
+    }
+    
+    .sidebar.collapsed .sidebar-content {
+      opacity: 0;
+      height: 0;
+      overflow: hidden;
+    }
+    
+    .sidebar.collapsed .sidebar-header {
+      justify-content: center;
+      padding: 15px 5px;
+    }
+    
+    .sidebar.collapsed .sidebar-header h3,
+    .sidebar.collapsed .log-header h3 {
+      display: none;
+    }
+    
+    .sidebar.collapsed .log-header {
+      padding: 15px 5px;
+      justify-content: center;
+    }
+  </style>
 </head>
 <body>
-
-<button id="toggleStreamBtn">Show Live Camera</button>
-
-<div class="video-container" id="videoContainer" style="display:none;">
-    <div id="videoOverlay" class="overlay">
-        <div class="spinner"></div>
-        <div>Loading Video Stream...</div>
+  <header>
+    <h1>YOLO Detection Stream</h1>
+    <div class="header-controls">
+      <div class="icons">
+        <i class="fa-solid fa-expand" title="Fullscreen" id="fullscreenBtn"></i>
+        <i class="fa-solid fa-gear" title="Settings" id="settingsBtn"></i>
+        <i class="fa-solid fa-circle-info" title="Info" id="infoBtn"></i>
+        <i class="fa-solid fa-rotate-right" title="Refresh Page" id="refreshBtn"></i>
+      </div>
     </div>
-    <img id="videoStream" onload="onVideoLoad()" onerror="onVideoError()">
-</div>
+  </header>
 
+  <div class="layout-container">
+    <!-- Video Section -->
+    <div class="video-section">
+      <div class="video-container">
+        <img id="videoFeed" src="{{ url_for('video_feed') }}?t={{ timestamp }}" alt="Video stream">
+        
+        <div class="video-overlay">
+          <div class="status-indicator">
+            <span id="statusIcon" class="status-icon"></span>
+            <span id="statusText">Active</span>
+          </div>
+        </div>
+        
+        <div class="video-controls">
+          <button class="toggle-btn" id="toggleVideoBtn">
+            <i class="fa-solid fa-eye-slash"></i> Hide Video
+          </button>
+          <button class="toggle-btn secondary" id="toggleSidebarBtn">
+            <i class="fa-solid fa-sidebar"></i> Toggle Sidebar
+          </button>
+        </div>
+      </div>
+    </div>
 
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h3><i class="fa-solid fa-chart-bar"></i> Detection Stats</h3>
+        <button class="collapse-btn" id="collapseSidebarBtn">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+      
+      <div class="sidebar-content">
+        <!-- Stats -->
+        <div class="stats">
+          <div class="stat-grid">
+            <div class="stat">
+              <div class="stat-label">Objects Detected</div>
+              <span id="objectsCount" class="stat-value">0</span>
+            </div>
+            <div class="stat">
+              <div class="stat-label">FPS</div>
+              <span id="fpsCount" class="stat-value">0.0</span>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Processing Time</div>
+              <span id="processingTime" class="stat-value">0ms</span>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Detection Confidence</div>
+              <span id="confidence" class="stat-value">{{ CONFIDENCE_THRESHOLD * 100 }}%</span>
+            </div>
+          </div>
+          <div class="object-list" id="objectList"></div>
+        </div>
 
-<script>
-const toggleBtn = document.getElementById('toggleStreamBtn');
-const videoContainer = document.getElementById('videoContainer');
-const videoStreamEl = document.getElementById('videoStream');
-const overlayElement = document.getElementById('videoOverlay');
-const errorContainer = document.getElementById('errorContainer');
+        <!-- Logs -->
+        <div class="logs">
+          <div class="log-header">
+            <h3><i class="fa-solid fa-terminal"></i> Logs</h3>
+            <div class="log-controls">
+              <button id="clearLogsBtn">Clear</button>
+              <button id="pauseLogsBtn">Pause</button>
+              <button id="autoScrollBtn" title="Auto Scroll">
+                <i class="fas fa-check-circle"></i>
+              </button>
+            </div>
+          </div>
+          <div id="logContainer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-toggleBtn.addEventListener('click', () => {
-    if (videoContainer.style.display === "none") {
-        videoContainer.style.display = "block";
-        videoStreamEl.src = "{{ url_for('video_feed') }}?" + new Date().getTime();
-        toggleBtn.textContent = "Hide Live Camera";
-        overlayElement.style.display = "flex";
-        errorContainer.style.display = "none";
-    } else {
-        videoContainer.style.display = "none";
-        videoStreamEl.src = "";
-        toggleBtn.textContent = "Show Live Camera";
+  <script>
+    // Add cache-busting parameter to prevent caching
+    const cacheBuster = 't=' + new Date().getTime();
+    const socket = io();
+
+    // DOM elements
+    const objectsCount = document.getElementById('objectsCount');
+    const fpsCount = document.getElementById('fpsCount');
+    const processingTime = document.getElementById('processingTime');
+    const objectList = document.getElementById('objectList');
+    const logContainer = document.getElementById('logContainer');
+    const videoFeed = document.getElementById('videoFeed');
+    const toggleBtn = document.getElementById('toggleVideoBtn');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusText = document.getElementById('statusText');
+    const clearLogsBtn = document.getElementById('clearLogsBtn');
+    const pauseLogsBtn = document.getElementById('pauseLogsBtn');
+    const autoScrollBtn = document.getElementById('autoScrollBtn');
+    const sidebar = document.getElementById('sidebar');
+    const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+    const collapseSidebarBtn = document.getElementById('collapseSidebarBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const infoBtn = document.getElementById('infoBtn');
+
+    // Log management variables
+    let logsPaused = false;
+    let autoScrollEnabled = true;
+    let logEntries = [];
+    let isUserScrolling = false;
+    let scrollTimeout = null;
+    let lastVideoSrcUpdate = 0;
+
+    // Color palette for object badges
+    const COLORS = ["#0066ff", "#ff5722", "#4caf50", "#e91e63", "#9c27b0", "#00bcd4"];
+    
+    function getColor(key) {
+      let hash = 0;
+      for (let i = 0; i < key.length; i++) {
+        hash = key.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return COLORS[Math.abs(hash) % COLORS.length];
     }
-});
 
-function onVideoLoad() {
-    overlayElement.style.display = "none";
-    errorContainer.style.display = "none";
-}
+    // Update video feed source to prevent caching
+    function updateVideoSource() {
+      const now = Date.now();
+      // Only update at most once every 2 seconds
+      if (now - lastVideoSrcUpdate > 2000) {
+        videoFeed.src = "{{ url_for('video_feed') }}?" + cacheBuster + "&" + new Date().getTime();
+        lastVideoSrcUpdate = now;
+      }
+    }
 
-function onVideoError() {
-    overlayElement.style.display = "none";
-    errorContainer.style.display = "block";
-}
-</script>
+    // Update stats
+    socket.on('stats', (data) => {
+      if (!data) return;
 
+      objectsCount.textContent = data.object_count || 0;
+      fpsCount.textContent = data.fps ? data.fps.toFixed(1) : '0.0';
+      processingTime.textContent = data.processing_time
+        ? `${data.processing_time.toFixed(1)}ms`
+        : '0ms';
+
+      objectList.innerHTML = '';
+      if (data.detected_objects) {
+        for (const [obj, count] of Object.entries(data.detected_objects)) {
+          const div = document.createElement('div');
+          div.className = 'object-badge';
+          div.style.background = getColor(obj);
+          div.innerHTML = `<span>${obj}</span> × ${count}`;
+          objectList.appendChild(div);
+        }
+      }
+    });
+
+    // Handle user scrolling
+    logContainer.addEventListener('scroll', () => {
+      isUserScrolling = true;
+      
+      // Clear previous timeout
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+      
+      // Set a timeout to reset isUserScrolling after scrolling stops
+      scrollTimeout = setTimeout(() => {
+        isUserScrolling = false;
+        
+        // If user scrolls to the bottom, re-enable auto-scroll
+        const threshold = 50; // pixels from bottom
+        const atBottom = logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight <= threshold;
+        
+        if (atBottom) {
+          autoScrollEnabled = true;
+          autoScrollBtn.innerHTML = '<i class="fas fa-check-circle"></i>';
+        }
+      }, 200);
+    });
+
+    // Logs
+    socket.on('log', (entry) => {
+      if (logsPaused) return;
+      
+      const div = document.createElement('div');
+      div.className = `log-entry log-${entry.type}`;
+      div.textContent = `[${new Date(entry.timestamp).toLocaleTimeString()}] ${entry.message}`;
+      logContainer.appendChild(div);
+      logEntries.push(div);
+      
+      // Keep only the last 200 log entries to prevent memory issues
+      if (logEntries.length > 200) {
+        const oldestLog = logEntries.shift();
+        if (oldestLog.parentNode === logContainer) {
+          logContainer.removeChild(oldestLog);
+        }
+      }
+      
+      // Only auto-scroll if enabled and user isn't manually scrolling
+      if (autoScrollEnabled && !isUserScrolling) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+    });
+
+    socket.on('log_history', (entries) => {
+      logContainer.innerHTML = '';
+      logEntries = [];
+      
+      entries.forEach(entry => {
+        const div = document.createElement('div');
+        div.className = `log-entry log-${entry.type}`;
+        div.textContent = `[${new Date(entry.timestamp).toLocaleTimeString()}] ${entry.message}`;
+        logContainer.appendChild(div);
+        logEntries.push(div);
+      });
+      
+      if (autoScrollEnabled) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+    });
+
+    // Video toggle
+    let videoVisible = true;
+    toggleBtn.addEventListener('click', () => {
+      videoVisible = !videoVisible;
+      videoFeed.style.display = videoVisible ? 'block' : 'none';
+      toggleBtn.innerHTML = videoVisible 
+        ? '<i class="fa-solid fa-eye-slash"></i> Hide Video' 
+        : '<i class="fa-solid fa-eye"></i> Show Video';
+    });
+
+    // Clear logs
+    clearLogsBtn.addEventListener('click', () => {
+      logContainer.innerHTML = '';
+      logEntries = [];
+    });
+
+    // Pause logs
+    pauseLogsBtn.addEventListener('click', () => {
+      logsPaused = !logsPaused;
+      pauseLogsBtn.textContent = logsPaused ? 'Resume' : 'Pause';
+    });
+
+    // Auto scroll toggle
+    autoScrollBtn.addEventListener('click', () => {
+      autoScrollEnabled = !autoScrollEnabled;
+      autoScrollBtn.innerHTML = autoScrollEnabled 
+        ? '<i class="fas fa-check-circle"></i>' 
+        : '<i class="fas fa-circle"></i>';
+      
+      if (autoScrollEnabled) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+    });
+
+    // Sidebar toggle
+    toggleSidebarBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      collapseSidebarBtn.innerHTML = sidebar.classList.contains('collapsed') 
+        ? '<i class="fa-solid fa-chevron-left"></i>' 
+        : '<i class="fa-solid fa-chevron-right"></i>';
+    });
+
+    collapseSidebarBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      collapseSidebarBtn.innerHTML = sidebar.classList.contains('collapsed') 
+        ? '<i class="fa-solid fa-chevron-left"></i>' 
+        : '<i class="fa-solid fa-chevron-right"></i>';
+    });
+
+    // Fullscreen mode
+    fullscreenBtn.addEventListener('click', () => {
+      const videoContainer = document.querySelector('.video-container');
+      if (!document.fullscreenElement) {
+        if (videoContainer.requestFullscreen) {
+          videoContainer.requestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    });
+
+    // Refresh page
+    refreshBtn.addEventListener('click', () => {
+      window.location.reload(true);
+    });
+
+    // Settings button
+    settingsBtn.addEventListener('click', () => {
+      alert('Settings would open here in a real implementation');
+    });
+
+    // Info button
+    infoBtn.addEventListener('click', () => {
+      alert('YOLO Detection Stream\nVersion 1.0\nDeployment: {{ DEPLOYMENT_COLOR }}');
+    });
+
+    // Deployment status handler
+    function setDeploymentStatus(mode) {
+      if (mode === "blue") {
+        statusIcon.style.background = "#3498db";
+        statusText.textContent = "Blue Deployment";
+        statusIcon.title = "Blue Deployment Active";
+      } else if (mode === "green") {
+        statusIcon.style.background = "#2ecc71";
+        statusText.textContent = "Green Deployment";
+        statusIcon.title = "Green Deployment Active";
+      } else {
+        statusIcon.style.background = "#dc3545";
+        statusText.textContent = "Inactive";
+        statusIcon.title = "No Deployment Active";
+      }
+    }
+
+    // Listen for deployment status changes from server
+    socket.on("deployment_status", (data) => {
+      if (data && data.active) {
+        setDeploymentStatus(data.active);
+      }
+    });
+    setInterval(() => {
+    fetch("/deployment_status")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.active) {
+          setDeploymentStatus(data.active);
+        }
+      })
+      .catch((err) => {
+        console.error("Polling failed:", err);
+      });
+    }, 5000);
+
+    // Request deployment status on connect
+    socket.on('connect', function() {
+      socket.emit('request_deployment_status');
+    });
+
+    // Periodically update video source to prevent caching
+    setInterval(updateVideoSource, 5000);
+
+    // Initial setup
+    setDeploymentStatus("{{ DEPLOYMENT_COLOR }}");
+    
+    // Update video source initially
+    updateVideoSource();
+  </script>
 </body>
 </html>

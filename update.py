@@ -1,20 +1,14 @@
 import cv2
+import streamlit as st
 
-RTSP_URL = "rtsp://127.0.0.1:8554/live/stream"  # or your LAN IP, e.g., 192.168.x.x
+st.title("Webcam Live Feed")
+run = st.checkbox('Run')
+FRAME_WINDOW = st.image([])
+camera = cv2.VideoCapture(0)
 
-cap = cv2.VideoCapture(RTSP_URL, cv2.CAP_FFMPEG)
-if not cap.isOpened():
-    print(f"Cannot open RTSP stream: {RTSP_URL}")
-    exit()
-
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        print("Frame not received")
-        break
-    cv2.imshow("Stream", frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
+while run:
+    _, frame = camera.read()
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    FRAME_WINDOW.image(frame)
+else:
+    st.write('Stopped')

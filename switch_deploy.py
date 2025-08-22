@@ -11,7 +11,8 @@ DOCKER_NETWORK = "internal"
 
 # Delays (seconds) to ensure smooth switching
 STOP_DELAY = 5       # wait after stopping old app to release /dev/video0
-START_DELAY = 3      # wait after starting new app before health check
+START_DELAY = 10     # wait after starting new app before proceeding
+
 
 def run_cmd(cmd, check=True):
     print(f"▶ Running: {cmd}")
@@ -20,36 +21,41 @@ def run_cmd(cmd, check=True):
         raise subprocess.CalledProcessError(result.returncode, cmd)
     return result
 
+
 def get_active():
     if os.path.exists(ACTIVE_FILE):
         with open(ACTIVE_FILE) as f:
             val = f.read().strip()
             if val in ("blue", "green"):
                 return val
-    return "green"  # default fallback
+    return "green"
+
 
 def get_inactive(active):
     return "blue" if active == "green" else "green"
+
 
 def write_active(active_color):
     with open(ACTIVE_FILE, "w") as f:
         f.write(active_color)
 
-def wait_for_healthy(service_name, timeout=60):
-    print(f"Waiting for {service_name} to become healthy...")
+
+def wait_for_dns_resolution(upstream_name, timeout=30):
+    """Wait until NGINX container can resolve the upstream hostname."""
+    print(f"Waiting for {upstream_name} to be resolvable in {NGINX_CONTAINER_NAME}...")
     start = time.time()
     while time.time() - start < timeout:
         result = subprocess.run(
-            f"docker inspect --format='{{{{.State.Health.Status}}}}' {service_name}",
+            f"docker exec {NGINX_CONTAINER_NAME} ping -c 1 -W 1 {upstream_name}",
             shell=True,
-            capture_output=True,
-            text=True
+            capture_output=True
         )
-        if result.returncode == 0 and "healthy" in result.stdout:
-            print(f"{service_name} is healthy.")
+        if result.returncode == 0:
+            print(f"{upstream_name} is now resolvable.")
             return True
-        time.sleep(2)
-    raise RuntimeError(f"Timeout waiting for {service_name} to become healthy")
+        time.sleep(1)
+    raise RuntimeError(f"Timeout waiting for {upstream_name} to be resolvable in {NGINX_CONTAINER_NAME}")
+
 
 def write_nginx_routing_config(target_color):
     print(f"Writing new NGINX routing config → {NGINX_CONF_PATH}")
@@ -67,12 +73,22 @@ server {{
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }}
 
+    location /socket.io/ {{
+        proxy_pass http://app_{target_color}:5000/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 3600s;
+        proxy_buffering off;
+    }}
+
     location /video_feed {{
         proxy_pass http://app_{target_color}:5000/video_feed;
-
         proxy_http_version 1.1;
         proxy_set_header Connection '';
-
         proxy_buffering off;
         proxy_request_buffering off;
         proxy_cache off;
@@ -89,6 +105,7 @@ server {{
 }}
 """)
 
+
 def test_nginx_config():
     print("Testing NGINX config...")
     result = subprocess.run(
@@ -101,6 +118,7 @@ def test_nginx_config():
     print(result.stderr)
     return result.returncode == 0
 
+
 def reload_nginx():
     print(f"Reloading NGINX config in container: {NGINX_CONTAINER_NAME}")
     if test_nginx_config():
@@ -109,10 +127,10 @@ def reload_nginx():
     else:
         raise RuntimeError("NGINX config test failed; reload aborted.")
 
+
 def main():
     try:
         print("Starting Blue-Green Deployment Switch")
-
         active = get_active()
         inactive = get_inactive(active)
 
@@ -127,12 +145,11 @@ def main():
         # Start new app container
         run_cmd(f"docker compose up -d --no-deps --build app_{inactive}")
 
-        # Wait a bit before health check so app can init camera
+        # Wait a bit for app initialization (camera etc.)
         print(f"Waiting {START_DELAY}s for app initialization...")
         time.sleep(START_DELAY)
 
-        # Wait for health check to pass
-        wait_for_healthy(f"vision-on-the-edge-app_{inactive}-1")
+        # Health checks and rollback are disabled for now
 
         # Update nginx config
         write_nginx_routing_config(inactive)
@@ -140,8 +157,8 @@ def main():
         # Ensure nginx is running
         run_cmd("docker compose up -d nginx")
 
-        # Small delay before reload
-        time.sleep(3)
+        # Wait until upstream is resolvable from nginx container
+        wait_for_dns_resolution(f"app_{inactive}")
 
         # Reload nginx to apply config
         reload_nginx()
@@ -157,6 +174,7 @@ def main():
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

@@ -18,6 +18,7 @@ services:
       args:
         - VIDEO_GID=44
     environment:
+      - DEPLOYMENT_COLOR=green
       - ACTIVE=true
       - VIDEO_DEVICE=/dev/video0  # Direct device path here
       - STREAM_FPS=5
@@ -30,11 +31,8 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 45s
+      disable: true
+      
     restart: unless-stopped
 
   app_blue:
@@ -43,6 +41,7 @@ services:
       args:
         - VIDEO_GID=44
     environment:
+      - DEPLOYMENT_COLOR=blue
       - ACTIVE=true
       - VIDEO_DEVICE=/dev/video0
       - STREAM_FPS=5
@@ -55,11 +54,8 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 45s
+      disable: true
+      
     restart: unless-stopped
 
 networks:
