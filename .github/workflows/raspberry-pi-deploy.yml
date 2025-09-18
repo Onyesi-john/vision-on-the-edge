@@ -13,9 +13,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Initialize timing log in ci_logs
+      # Initialize timing log and create ci_logs folder
       - name: Initialize timing log
-        run: echo "ci_timing log for run $(date)" > ci_logs/ci_timing.log
+        run: |
+          mkdir -p ci_logs
+          echo "ci_timing log for run $(date)" > ci_logs/ci_timing.log
 
       # Log checkout complete
       - name: Log checkout complete
