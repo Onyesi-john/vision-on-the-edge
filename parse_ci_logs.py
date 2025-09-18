@@ -1,70 +1,61 @@
 import os
 import csv
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
-# Directory containing all ci_timing.log files
-LOG_DIR = "ci_logs"
-OUTPUT_CSV = "ci_stage_durations.csv"
+# Directory containing all runs for a tool
+LOG_DIR = "ci_timing_runs"
+OUTPUT_CSV = "ci_stage_durations_avg.csv"
 
 # Collect all logs
 log_files = [os.path.join(LOG_DIR, f) for f in os.listdir(LOG_DIR) if f.endswith(".log")]
-
-all_runs = []
+all_stage_durations = []
 
 for log_file in log_files:
-    run_name = os.path.splitext(os.path.basename(log_file))[0]
-    timestamps = {}
+    stages = []
     with open(log_file, "r") as f:
         for line in f:
             line = line.strip()
-            if not line:
+            if "," not in line:
                 continue
             ts, stage = line.split(",", 1)
-            timestamps[stage] = int(ts)
+            stages.append((stage, int(ts)))
 
-    # Compute stage durations aligned with workflow output
-    stages = [
-        ("checkout", "checkout_done", "buildx_setup_done"),
-        ("docker_login", "buildx_setup_done", "docker_login_done"),
-        ("docker_build", "docker_build_start", "docker_build_end"),
-    ]
+    # Compute durations between consecutive stages
     durations = {}
-    for name, start, end in stages:
-        if start in timestamps and end in timestamps:
-            durations[name] = timestamps[end] - timestamps[start]
-        else:
-            durations[name] = None
-    durations["run_name"] = run_name
-    all_runs.append(durations)
+    for i in range(len(stages) - 1):
+        name = f"{stages[i][0]} → {stages[i+1][0]}"
+        durations[name] = stages[i+1][1] - stages[i][1]
 
-# Write CSV
+    all_stage_durations.append(durations)
+
+# Collect all unique stage transitions
+all_stage_names = sorted({name for d in all_stage_durations for name in d})
+
+# Compute averages
+avg_durations = {}
+for stage in all_stage_names:
+    values = [d[stage] for d in all_stage_durations if stage in d]
+    avg_durations[stage] = np.mean(values) if values else None
+
+# Save CSV
 with open(OUTPUT_CSV, "w", newline="") as csvfile:
-    fieldnames = ["run_name", "checkout", "docker_login", "docker_build"]
+    fieldnames = ["stage", "avg_duration"]
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
     writer.writeheader()
-    for run in all_runs:
-        writer.writerow(run)
+    for stage, avg in avg_durations.items():
+        writer.writerow({"stage": stage, "avg_duration": avg})
 
 print(f"CSV saved to {OUTPUT_CSV}")
 
-# Optional: plot bar chart
-run_names = [r["run_name"] for r in all_runs]
-checkout_times = [r["checkout"] for r in all_runs]
-login_times = [r["docker_login"] for r in all_runs]
-build_times = [r["docker_build"] for r in all_runs]
-
-x = np.arange(len(run_names))
-width = 0.25
+# Plot bar chart
+stages = list(avg_durations.keys())
+durations = [avg_durations[s] for s in stages]
 
 fig, ax = plt.subplots(figsize=(10,6))
-ax.bar(x - width, checkout_times, width, label="Checkout")
-ax.bar(x, login_times, width, label="Docker Login")
-ax.bar(x + width, build_times, width, label="Docker Build")
-ax.set_xticks(x)
-ax.set_xticklabels(run_names, rotation=45, ha="right")
-ax.set_ylabel("Duration (seconds)")
-ax.set_title("CI/CD Stage Durations")
-ax.legend()
+ax.bar(stages, durations)
+ax.set_ylabel("Average Duration (seconds)")
+ax.set_title("Average CI/CD Stage Durations")
+ax.set_xticklabels(stages, rotation=45, ha="right")
 plt.tight_layout()
 plt.show()
