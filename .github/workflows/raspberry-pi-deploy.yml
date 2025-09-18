@@ -19,29 +19,27 @@ jobs:
           mkdir -p ci_logs
           echo "ci_timing log for run $(date)" > ci_logs/ci_timing.log
 
-      # Log checkout complete
-      - name: Log checkout complete
-        run: echo "$(date +%s),checkout_done" >> ci_logs/ci_timing.log
+      # Checkout stage
+      - name: Log checkout
+        run: |
+          echo "$(date +%s),checkout_start" >> ci_logs/ci_timing.log
+          # checkout already done by actions/checkout
+          echo "$(date +%s),checkout_end" >> ci_logs/ci_timing.log
 
       # Setup Docker Buildx
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        run: |
+          echo "$(date +%s),buildx_setup_start" >> ci_logs/ci_timing.log
+          docker buildx create --use
+          echo "$(date +%s),buildx_setup_end" >> ci_logs/ci_timing.log
 
-      # Log Buildx setup
-      - name: Log Buildx setup
-        run: echo "$(date +%s),buildx_setup_done" >> ci_logs/ci_timing.log
-
-      # Log in to Docker Hub
+      # Docker login
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          registry: docker.io
-
-      # Log Docker login
-      - name: Log Docker login
-        run: echo "$(date +%s),docker_login_done" >> ci_logs/ci_timing.log
+        run: |
+          echo "$(date +%s),docker_login_start" >> ci_logs/ci_timing.log
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
+            -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin docker.io
+          echo "$(date +%s),docker_login_end" >> ci_logs/ci_timing.log
 
       # Build and push Docker image
       - name: Build and push ARM64 image
@@ -53,7 +51,7 @@ jobs:
             -t ${{ secrets.DOCKER_USERNAME }}/edge_deployment:latest \
             -f app/Dockerfile \
             app/
-          echo "$(date +%s),docker_build_end" >> ci_logs/ci_timing.log
+          echo "$(date +%s),docker_push_end" >> ci_logs/ci_timing.log
 
       # Upload the timing log as artifact
       - name: Upload timing log

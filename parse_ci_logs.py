@@ -1,6 +1,7 @@
 import os
 import csv
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Directory containing all ci_timing.log files
 LOG_DIR = "ci_logs"
@@ -21,10 +22,10 @@ for log_file in log_files:
                 continue
             ts, stage = line.split(",", 1)
             timestamps[stage] = int(ts)
-    
-    # Compute stage durations
+
+    # Compute stage durations aligned with workflow output
     stages = [
-        ("checkout", "checkout_start", "buildx_setup_done"),
+        ("checkout", "checkout_done", "buildx_setup_done"),
         ("docker_login", "buildx_setup_done", "docker_login_done"),
         ("docker_build", "docker_build_start", "docker_build_end"),
     ]
@@ -48,8 +49,6 @@ with open(OUTPUT_CSV, "w", newline="") as csvfile:
 print(f"CSV saved to {OUTPUT_CSV}")
 
 # Optional: plot bar chart
-import numpy as np
-
 run_names = [r["run_name"] for r in all_runs]
 checkout_times = [r["checkout"] for r in all_runs]
 login_times = [r["docker_login"] for r in all_runs]
