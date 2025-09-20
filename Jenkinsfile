@@ -8,25 +8,32 @@ pipeline {
     }
 
     stages {
+
         stage('Initialize Logs') {
             steps {
-                sh '''
-                    mkdir -p ci_logs
-                    echo "ci_timing log for Jenkins run $(date)" > ci_logs/ci_timing.log
-                    echo "$(date +%s),initialize_logs_done" >> ci_logs/ci_timing.log
-                '''
+                script {
+                    // Create ci_logs folder and initialize log file
+                    sh '''
+                        mkdir -p ci_logs
+                        echo "ci_timing log for Jenkins run $(date)" > ci_logs/ci_timing.log
+                        echo "$(date +%s),initialize_logs_done" >> ci_logs/ci_timing.log
+                    '''
+                }
             }
         }
 
-        stage('Enable Buildx') {
+        stage('Check Docker & Enable Buildx') {
             steps {
-                sh '''
-                    echo "$(date +%s),buildx_start" >> ci_logs/ci_timing.log
-                    export DOCKER_CLI_EXPERIMENTAL=enabled
-                    docker buildx create --name mybuilder --use || true
-                    docker buildx inspect --bootstrap || true
-                    echo "$(date +%s),buildx_done" >> ci_logs/ci_timing.log
-                '''
+                script {
+                    sh '''
+                        echo "$(date +%s),buildx_start" >> ci_logs/ci_timing.log
+                        docker version
+                        export DOCKER_CLI_EXPERIMENTAL=enabled
+                        docker buildx create --name mybuilder --use || true
+                        docker buildx inspect mybuilder --bootstrap
+                        echo "$(date +%s),buildx_done" >> ci_logs/ci_timing.log
+                    '''
+                }
             }
         }
 
@@ -46,19 +53,23 @@ pipeline {
 
         stage('Build & Push Multi-Arch Image') {
             steps {
-                sh '''
-                    echo "$(date +%s),docker_build_push_start" >> ci_logs/ci_timing.log
-                    docker buildx build --platform linux/arm/v7,linux/arm64,linux/amd64 \
-                        -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_REPO}:${DOCKER_IMAGE} \
-                        --push .
-                    echo "$(date +%s),docker_build_push_done" >> ci_logs/ci_timing.log
-                '''
+                script {
+                    sh '''
+                        echo "$(date +%s),docker_build_push_start" >> ci_logs/ci_timing.log
+                        docker buildx build --platform linux/arm/v7,linux/arm64,linux/amd64 \
+                            -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_REPO}:${DOCKER_IMAGE} \
+                            --push .
+                        echo "$(date +%s),docker_build_push_done" >> ci_logs/ci_timing.log
+                    '''
+                }
             }
         }
+
     }
 
     post {
         always {
+            // Archive the timing log for download
             archiveArtifacts artifacts: 'ci_logs/ci_timing.log', fingerprint: true
         }
     }
