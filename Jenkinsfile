@@ -38,12 +38,16 @@ pipeline {
 
         stage('Login to Docker Hub') {
             steps {
-                withCredentials([string(credentialsId: 'oyinc-docker', variable: 'DOCKER_PASSWORD')]) {
-                    sh '''
-                        echo "$(date +%s),docker_login_start" >> ci_logs/ci_timing.log
-                        echo $DOCKER_PASSWORD | docker login -u ${DOCKERHUB_USERNAME} --password-stdin
-                        echo "$(date +%s),docker_login_done" >> ci_logs/ci_timing.log
-                    '''
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'oyinc-docker', 
+                                                     usernameVariable: 'DOCKER_USER', 
+                                                     passwordVariable: 'DOCKER_PASS')]) {
+                        sh '''
+                            echo "$(date +%s),docker_login_start" >> ci_logs/ci_timing.log
+                            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                            echo "$(date +%s),docker_login_done" >> ci_logs/ci_timing.log
+                        '''
+                    }
                 }
             }
         }
