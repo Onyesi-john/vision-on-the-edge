@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'docker:24.0.5-dind'  // Docker-in-Docker with Buildx support
+            args '--privileged'
+        }
+    }
 
     environment {
         DOCKER_IMAGE = 'latest'
@@ -12,7 +17,6 @@ pipeline {
         stage('Initialize Logs') {
             steps {
                 script {
-                    // Create ci_logs folder and initialize log file
                     sh '''
                         mkdir -p ci_logs
                         echo "ci_timing log for Jenkins run $(date)" > ci_logs/ci_timing.log
@@ -28,7 +32,7 @@ pipeline {
                     sh '''
                         echo "$(date +%s),buildx_start" >> ci_logs/ci_timing.log
                         export DOCKER_CLI_EXPERIMENTAL=enabled
-                        docker buildx create --use || true
+                        docker buildx create --name mybuilder --use || true
                         docker buildx inspect --bootstrap || true
                         echo "$(date +%s),buildx_done" >> ci_logs/ci_timing.log
                     '''
@@ -70,7 +74,6 @@ pipeline {
 
     post {
         always {
-            // Archive the timing log for download
             archiveArtifacts artifacts: 'ci_logs/ci_timing.log', fingerprint: true
         }
     }
