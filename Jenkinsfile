@@ -38,7 +38,7 @@ pipeline {
 
         stage('Login to Docker Hub') {
             steps {
-                withCredentials([string(credentialsId: 'docker-hub-password', variable: 'DOCKER_PASSWORD')]) {
+                withCredentials([string(credentialsId: 'oyinc-docker', variable: 'DOCKER_PASSWORD')]) {
                     sh '''
                         echo "$(date +%s),docker_login_start" >> ci_logs/ci_timing.log
                         echo $DOCKER_PASSWORD | docker login -u ${DOCKERHUB_USERNAME} --password-stdin
