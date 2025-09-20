@@ -45,16 +45,14 @@ jobs:
           name: Build and Push Docker Image for Raspberry Pi
           command: |
             echo "$(date +%s),docker_build_start" >> ci_logs/ci_timing.log
-            TIMESTAMP=$(date +%s)
-            IMAGE_NAME="$DOCKERHUB_USERNAME/streamapp:circleci-$TIMESTAMP"
             docker buildx create --use
             docker buildx build \
               --platform linux/arm64 \
-              -t $IMAGE_NAME \
-              --push .
+              -t $DOCKERHUB_USERNAME/streamapp:latest \
+              -f app/Dockerfile \
+              app/ \
+              --push
             echo "$(date +%s),docker_build_end" >> ci_logs/ci_timing.log
-            echo "Built and pushed image: $IMAGE_NAME"
-
       # Upload timing log as artifact
       - store_artifacts:
           path: ci_logs/ci_timing.log
