@@ -1,0 +1,67 @@
+version: 2.1
+
+executors:
+  arm_executor:
+    machine: true  # Enables privileged mode for QEMU multi-arch builds
+
+jobs:
+  build_and_push_docker_image:
+    executor: arm_executor
+    steps:
+      - checkout
+
+      # Initialize timing log
+      - run:
+          name: Initialize timing log
+          command: |
+            mkdir -p ci_logs
+            echo "ci_timing log for CircleCI run $(date)" > ci_logs/ci_timing.log
+            echo "$(date +%s),checkout_done" >> ci_logs/ci_timing.log
+
+      # Start Docker service
+      - run:
+          name: Start Docker Service
+          command: |
+            sudo systemctl start docker
+            sleep 5
+            echo "$(date +%s),docker_service_started" >> ci_logs/ci_timing.log
+
+      # Enable QEMU
+      - run:
+          name: Enable QEMU for Multi-Arch Builds
+          command: |
+            docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+            echo "$(date +%s),qemu_setup_done" >> ci_logs/ci_timing.log
+
+      # Authenticate with Docker Hub
+      - run:
+          name: Authenticate with Docker Hub
+          command: |
+            echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            echo "$(date +%s),docker_login_done" >> ci_logs/ci_timing.log
+
+      # Build and Push Docker Image
+      - run:
+          name: Build and Push Docker Image for Raspberry Pi
+          command: |
+            echo "$(date +%s),docker_build_start" >> ci_logs/ci_timing.log
+            TIMESTAMP=$(date +%s)
+            IMAGE_NAME="$DOCKERHUB_USERNAME/streamapp:circleci-$TIMESTAMP"
+            docker buildx create --use
+            docker buildx build \
+              --platform linux/arm64 \
+              -t $IMAGE_NAME \
+              --push .
+            echo "$(date +%s),docker_build_end" >> ci_logs/ci_timing.log
+            echo "Built and pushed image: $IMAGE_NAME"
+
+      # Upload timing log as artifact
+      - store_artifacts:
+          path: ci_logs/ci_timing.log
+          destination: ci_timing.log
+
+workflows:
+  version: 2
+  build_and_deploy:
+    jobs:
+      - build_and_push_docker_image
