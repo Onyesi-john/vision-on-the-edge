@@ -1,4 +1,4 @@
-name: Build and Push to Docker Hub
+name: Build, Push, and Deploy
 
 on:
   push:
@@ -9,31 +9,26 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Initialize timing log and create ci_logs folder
       - name: Initialize timing log
         run: |
           mkdir -p ci_logs
           echo "ci_timing log for run $(date)" > ci_logs/ci_timing.log
 
-      # Checkout stage
       - name: Log checkout
         run: |
           echo "$(date +%s),checkout_start" >> ci_logs/ci_timing.log
           # checkout already done by actions/checkout
           echo "$(date +%s),checkout_end" >> ci_logs/ci_timing.log
 
-      # Setup Docker Buildx
       - name: Set up Docker Buildx
         run: |
           echo "$(date +%s),buildx_setup_start" >> ci_logs/ci_timing.log
           docker buildx create --use
           echo "$(date +%s),buildx_setup_end" >> ci_logs/ci_timing.log
 
-      # Docker login
       - name: Log in to Docker Hub
         run: |
           echo "$(date +%s),docker_login_start" >> ci_logs/ci_timing.log
@@ -41,7 +36,6 @@ jobs:
             -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin docker.io
           echo "$(date +%s),docker_login_end" >> ci_logs/ci_timing.log
 
-      # Build and push Docker image
       - name: Build and push ARM64 image
         run: |
           echo "$(date +%s),docker_build_start" >> ci_logs/ci_timing.log
@@ -53,8 +47,48 @@ jobs:
             app/
           echo "$(date +%s),docker_push_end" >> ci_logs/ci_timing.log
 
-      # Upload the timing log as artifact
       - name: Upload timing log
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci_timing
+          path: ci_logs/ci_timing.log
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Download timing log
+        uses: actions/download-artifact@v4
+        with:
+          name: ci_timing
+          path: ci_logs
+
+      - name: Deploy to Raspberry Pi (blue-green)
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.PI_HOST }}
+          username: ${{ secrets.PI_USER }}
+          key: ${{ secrets.PI_SSH_KEY }}
+          script: |
+            echo "$(date +%s),deploy_start" >> ci_logs/ci_timing.log
+
+            cd ~/your-app-directory   # adjust to your docker-compose dir
+
+            echo "$(date +%s),docker_pull_start" >> ci_logs/ci_timing.log
+            docker-compose pull
+            echo "$(date +%s),docker_pull_end" >> ci_logs/ci_timing.log
+
+            echo "$(date +%s),compose_up_start" >> ci_logs/ci_timing.log
+            docker-compose up -d
+            echo "$(date +%s),compose_up_end" >> ci_logs/ci_timing.log
+
+            echo "$(date +%s),docker_prune_start" >> ci_logs/ci_timing.log
+            docker image prune -af
+            echo "$(date +%s),docker_prune_end" >> ci_logs/ci_timing.log
+
+            echo "$(date +%s),deploy_end" >> ci_logs/ci_timing.log
+
+      - name: Upload updated timing log
         uses: actions/upload-artifact@v4
         with:
           name: ci_timing
