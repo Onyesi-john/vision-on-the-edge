@@ -63,7 +63,7 @@ jobs:
           name: ci_timing
           path: ci_logs
 
-      - name: Deploy to Raspberry Pi (blue-green)
+      - name: Deploy to Raspberry Pi
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: ${{ secrets.PI_HOST }}
