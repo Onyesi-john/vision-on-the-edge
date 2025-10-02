@@ -73,7 +73,7 @@ jobs:
           script: |
             echo "$(date +%s),deploy_start" >> ci_logs/ci_timing.log
 
-            cd ~/home/hshl/VisionOnEdge   # adjust to your docker-compose dir
+            cd ~/hshl/VisionOnEdge   # adjust to your docker-compose dir
 
             echo "$(date +%s),docker_pull_start" >> ci_logs/ci_timing.log
             docker-compose pull
