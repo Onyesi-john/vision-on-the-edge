@@ -76,11 +76,11 @@ jobs:
             cd /home/hshl/VisionOnEdge   # adjust to your docker-compose dir
 
             echo "$(date +%s),docker_pull_start" >> ci_logs/ci_timing.log
-            docker-compose pull
+            docker compose pull
             echo "$(date +%s),docker_pull_end" >> ci_logs/ci_timing.log
 
             echo "$(date +%s),compose_up_start" >> ci_logs/ci_timing.log
-            docker-compose up -d
+            docker compose up -d
             echo "$(date +%s),compose_up_end" >> ci_logs/ci_timing.log
 
             echo "$(date +%s),docker_prune_start" >> ci_logs/ci_timing.log
