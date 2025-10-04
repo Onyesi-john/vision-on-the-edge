@@ -20,6 +20,7 @@ jobs:
       - name: Log checkout
         run: |
           echo "$(date +%s),checkout_start" >> ci_logs/ci_timing.log
+          # checkout already done by actions/checkout
           echo "$(date +%s),checkout_end" >> ci_logs/ci_timing.log
 
       - name: Set up Docker Buildx
@@ -35,27 +36,16 @@ jobs:
             -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin docker.io
           echo "$(date +%s),docker_login_end" >> ci_logs/ci_timing.log
 
-      - name: Build and push App image
+      - name: Build and push ARM64 image
         run: |
-          echo "$(date +%s),docker_app_build_start" >> ci_logs/ci_timing.log
+          echo "$(date +%s),docker_build_start" >> ci_logs/ci_timing.log
           docker buildx build \
             --platform linux/arm64 \
             --push \
             -t ${{ secrets.DOCKER_USERNAME }}/edge_deployment:latest \
             -f app/Dockerfile \
             app/
-          echo "$(date +%s),docker_app_push_end" >> ci_logs/ci_timing.log
-
-      - name: Build and push Nginx image
-        run: |
-          echo "$(date +%s),docker_nginx_build_start" >> ci_logs/ci_timing.log
-          docker buildx build \
-            --platform linux/arm64 \
-            --push \
-            -t ${{ secrets.DOCKER_USERNAME }}/visiononedge-nginx:latest \
-            -f nginx/Dockerfile \
-            nginx/
-          echo "$(date +%s),docker_nginx_push_end" >> ci_logs/ci_timing.log
+          echo "$(date +%s),docker_push_end" >> ci_logs/ci_timing.log
 
       - name: Upload timing log
         uses: actions/upload-artifact@v4
@@ -83,29 +73,32 @@ jobs:
           script: |
             echo "$(date +%s),deploy_start" >> ci_logs/ci_timing.log
 
-            cd /home/hshl/VisionOnEdge
+            cd /home/hshl/VisionOnEdge   # your docker-compose directory
 
-            # Pull the latest images
             echo "$(date +%s),docker_pull_start" >> ci_logs/ci_timing.log
             docker compose pull
             echo "$(date +%s),docker_pull_end" >> ci_logs/ci_timing.log
 
-            # Ensure previous containers are fully stopped
-            docker compose down
+            # Stop any running app to free the camera
+            docker compose stop app_blue app_green || true
+            docker compose rm -f app_blue app_green || true
 
-            # Blue/Green app switch logic
+            # Blue/Green app switch
             if docker ps --format '{{.Names}}' | grep -q app_blue; then
-              echo "Blue was running → start Green"
-              docker compose up -d app_green nginx
+              echo "Blue is running → switch to Green"
+              docker compose up -d app_green
             elif docker ps --format '{{.Names}}' | grep -q app_green; then
-              echo "Green was running → start Blue"
-              docker compose up -d app_blue nginx
+              echo "Green is running → switch to Blue"
+              docker compose up -d app_blue
             else
               echo "No app running → start Green by default"
-              docker compose up -d app_green nginx
+              docker compose up -d app_green
             fi
 
-            # Cleanup unused images
+            # Build/update Nginx if needed and ensure it runs
+            docker compose build nginx || true
+            docker compose up -d nginx
+
             echo "$(date +%s),docker_prune_start" >> ci_logs/ci_timing.log
             docker image prune -af
             echo "$(date +%s),docker_prune_end" >> ci_logs/ci_timing.log
