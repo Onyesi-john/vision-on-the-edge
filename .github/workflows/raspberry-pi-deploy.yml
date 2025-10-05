@@ -20,7 +20,6 @@ jobs:
       - name: Log checkout
         run: |
           echo "$(date +%s),checkout_start" >> ci_logs/ci_timing.log
-          # checkout already done by actions/checkout
           echo "$(date +%s),checkout_end" >> ci_logs/ci_timing.log
 
       - name: Set up Docker Buildx
@@ -79,25 +78,11 @@ jobs:
             docker compose pull
             echo "$(date +%s),docker_pull_end" >> ci_logs/ci_timing.log
 
-            # Stop any running app to free the camera
-            docker compose stop app_blue app_green || true
-            docker compose rm -f app_blue app_green || true
+            # Stop existing containers
+            docker compose down || true
 
-            # Blue/Green app switch
-            if docker ps --format '{{.Names}}' | grep -q app_blue; then
-              echo "Blue is running → switch to Green"
-              docker compose up -d app_green
-            elif docker ps --format '{{.Names}}' | grep -q app_green; then
-              echo "Green is running → switch to Blue"
-              docker compose up -d app_blue
-            else
-              echo "No app running → start Green by default"
-              docker compose up -d app_green
-            fi
-
-            # Build/update Nginx if needed and ensure it runs
-            docker compose build nginx || true
-            docker compose up -d nginx
+            # Recreate app and nginx with the latest image
+            docker compose up -d --build nginx app
 
             echo "$(date +%s),docker_prune_start" >> ci_logs/ci_timing.log
             docker image prune -af
