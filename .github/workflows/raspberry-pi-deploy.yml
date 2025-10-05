@@ -1,3 +1,5 @@
+name: Build, Push, and Deploy
+
 on:
   push:
     branches: [ main ]
@@ -8,15 +10,20 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
+      # Step 1: Checkout repository
       - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Log checkout timing
         run: |
           mkdir -p ci_logs
           echo "ci_timing log for run $(date)" > ci_logs/ci_timing.log
           echo "$(date +%s),checkout_start" >> ci_logs/ci_timing.log
-          git checkout main  # or your actual checkout command
+          # Repository is already checked out
           echo "$(date +%s),checkout_end" >> ci_logs/ci_timing.log
 
-      - name: Build and push Docker image
+      # Step 2: Build and push Docker image
+      - name: Log build timing
         run: |
           echo "$(date +%s),docker_build_start" >> ci_logs/ci_timing.log
           docker buildx build \
@@ -27,6 +34,7 @@ jobs:
             app/
           echo "$(date +%s),docker_push_end" >> ci_logs/ci_timing.log
 
+      # Step 3: Upload build timing log
       - name: Upload build timing log
         uses: actions/upload-artifact@v4
         with:
@@ -37,12 +45,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     steps:
+      # Step 1: Download build timing log
       - name: Download build timing log
         uses: actions/download-artifact@v4
         with:
           name: ci_timing_build
           path: ci_logs
 
+      # Step 2: Deploy to Raspberry Pi
       - name: Deploy to Raspberry Pi
         uses: appleboy/ssh-action@v1.1.0
         with:
@@ -51,17 +61,31 @@ jobs:
           username: ${{ secrets.PI_USER }}
           key: ${{ secrets.PI_SSH_KEY }}
           script: |
+            set -e  # stop if any command fails
+
             echo "$(date +%s),deploy_start" >> ci_logs/ci_timing.log
 
             cd /home/hshl/VisionOnEdge
 
+            echo "$(date +%s),docker_pull_start" >> ci_logs/ci_timing.log
             docker compose pull
+            echo "$(date +%s),docker_pull_end" >> ci_logs/ci_timing.log
+
+            echo "$(date +%s),docker_down_start" >> ci_logs/ci_timing.log
             docker compose down || true
+            echo "$(date +%s),docker_down_end" >> ci_logs/ci_timing.log
+
+            echo "$(date +%s),docker_up_start" >> ci_logs/ci_timing.log
             docker compose up -d --build app
+            echo "$(date +%s),docker_up_end" >> ci_logs/ci_timing.log
+
+            echo "$(date +%s),docker_prune_start" >> ci_logs/ci_timing.log
             docker image prune -af
+            echo "$(date +%s),docker_prune_end" >> ci_logs/ci_timing.log
 
             echo "$(date +%s),deploy_end" >> ci_logs/ci_timing.log
 
+      # Step 3: Upload deployment timing log
       - name: Upload deployment timing log
         uses: actions/upload-artifact@v4
         with:
