@@ -49,7 +49,7 @@ jobs:
       - name: Upload timing log
         uses: actions/upload-artifact@v4
         with:
-          name: ci_timing
+          name: ci_timing_build
           path: ci_logs/ci_timing.log
 
   deploy:
@@ -93,5 +93,5 @@ jobs:
       - name: Upload updated timing log
         uses: actions/upload-artifact@v4
         with:
-          name: ci_timing
+          name: ci_timing_deployment
           path: ci_logs/ci_timing.log
