@@ -141,7 +141,9 @@
   </div>
 
   <script>
-    const socket = io();
+    const socket = io(window.location.origin, {
+  transports: ['websocket', 'polling']
+});
     const objectsCount = document.getElementById('objectsCount');
     const fpsCount = document.getElementById('fpsCount');
     const processingTime = document.getElementById('processingTime');
