@@ -54,6 +54,7 @@ jobs:
         run: |
           mkdir -p ci_logs
           echo "ci_timing deploy log for run $(date)" > ci_logs/ci_timing_deploy.log
+          echo "$(date +%s),deploy_start" >> ci_logs/ci_timing_deploy.log
 
       - name: Deploy to Raspberry Pi
         uses: appleboy/ssh-action@v1.1.0
