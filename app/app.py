@@ -16,7 +16,7 @@ from datetime import datetime
 import atexit
 from dotenv import load_dotenv
 
-# Load .env
+# Load environment variables
 load_dotenv()
 
 # Logging
@@ -31,16 +31,13 @@ ASYNC_MODE = os.getenv("ASYNC_MODE", "threading")
 socketio = SocketIO(app, async_mode=ASYNC_MODE, cors_allowed_origins="*")
 
 # Settings from .env
-IS_ACTIVE = os.getenv("ACTIVE", "true").lower() == "true"
-VIDEO_DEVICE = os.getenv("VIDEO_DEVICE", "/dev/video0")  # string path
+VIDEO_DEVICE = os.getenv("VIDEO_DEVICE", "/dev/video0")
 STREAM_FPS = int(os.getenv("STREAM_FPS", "5"))
 MODEL_PATH = os.getenv("MODEL_PATH", str(Path(__file__).parent / "best.pt"))
-DEPLOYMENT_COLOR = os.getenv("DEPLOYMENT_COLOR", "blue").lower()
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.5"))
 LOG_HISTORY_SIZE = 100
 
-# Parse selected classes from .env
-selected = os.getenv("SELECTED_CLASSES", "")  # e.g., "person,chair,car"
+selected = os.getenv("SELECTED_CLASSES", "")  
 SELECTED_CLASSES = [s.strip() for s in selected.split(",") if s.strip()]
 
 # Globals
@@ -56,9 +53,9 @@ stop_threads = threading.Event()
 stats = {"fps": 0, "processing_time": 0, "object_count": 0, "detected_objects": {}}
 log_history = deque(maxlen=LOG_HISTORY_SIZE)
 
-# Torch optimization
 torch.set_num_threads(os.cpu_count() or 1)
 
+# Logging helper
 def add_log_entry(message, log_type="info", data=None):
     entry = {
         "id": str(uuid.uuid4()),
@@ -73,7 +70,7 @@ def add_log_entry(message, log_type="info", data=None):
     except Exception:
         pass
 
-# Capture frames from camera
+# Camera capture thread
 def capture_thread():
     global raw_frame, camera, stats
     frame_count = 0
@@ -92,7 +89,7 @@ def capture_thread():
         raw_frame = frame
         frame_count += 1
 
-        # Calculate FPS
+        # FPS calculation every 2s
         if time.time() - start_time >= 2:
             with lock:
                 stats["fps"] = frame_count / 2
@@ -103,15 +100,14 @@ def capture_thread():
             frame_queue.get_nowait()
         frame_queue.put(frame)
 
-# Inference and annotation
+# Inference and annotation thread
 def infer_thread():
     global annotated_frame, model, stats
     add_log_entry("Inference thread started")
 
     allowed_ids = None if not SELECTED_CLASSES else [
-    cls_id for cls_id, cls_name in model.names.items() if cls_name in SELECTED_CLASSES
-]
-
+        cls_id for cls_id, cls_name in model.names.items() if cls_name in SELECTED_CLASSES
+    ]
 
     while not stop_threads.is_set():
         try:
@@ -128,7 +124,6 @@ def infer_thread():
         for r in results:
             for box in r.boxes:
                 cls_id = int(box.cls[0])
-                conf = float(box.conf[0])
                 label = model.names[cls_id]
                 current_objects[label] = current_objects.get(label, 0) + 1
 
@@ -140,14 +135,12 @@ def infer_thread():
             stats["object_count"] = sum(current_objects.values())
             stats["detected_objects"] = current_objects
 
-        # Always log inference, even if nothing detected
         add_log_entry(f"Inference done. Objects: {current_objects}", "debug")
 
         try:
             socketio.emit('stats', stats)
         except Exception:
             pass
-
 
 # Initialize camera and model
 def init_inference():
@@ -184,7 +177,6 @@ def cleanup():
 atexit.register(cleanup)
 
 # Streaming generator
-# Streaming generator
 def generate_frames():
     min_interval = 1.0 / STREAM_FPS
     placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -194,68 +186,36 @@ def generate_frames():
     while not stop_threads.is_set():
         start_time = time.time()
 
-        # Always choose a safe frame
         with lock:
-            if annotated_frame is not None:
-                frame = annotated_frame.copy()
-            elif raw_frame is not None:
-                frame = raw_frame.copy()
-            else:
-                frame = placeholder.copy()
+            frame = annotated_frame.copy() if annotated_frame is not None else raw_frame.copy() if raw_frame is not None else placeholder.copy()
 
-        # Overlay FPS if stats available
         fps_text = f"FPS: {stats.get('fps', 0):.1f}"
         cv2.putText(frame, fps_text, (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-        # Encode to JPEG safely
         ret, jpeg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
-        if not ret or jpeg is None:
-            logger.warning("JPEG encoding failed, skipping frame")
+        if not ret:
             continue
 
         buf = jpeg.tobytes()
         yield (b"--frame\r\n"
                b"Content-Type: image/jpeg\r\n\r\n" + buf + b"\r\n")
 
-        # Frame pacing
         elapsed = time.time() - start_time
         if elapsed < min_interval:
             time.sleep(min_interval - elapsed)
 
-app.config['TEMPLATES_AUTO_RELOAD'] = True
-app_version = datetime.now().timestamp()
-
-@app.after_request
-def add_header(response):
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '-1'
-    return response
 # Flask routes
 @app.route('/')
 def home():
     return render_template('index.html', 
-                         active=IS_ACTIVE, 
-                         classes=SELECTED_CLASSES, 
-                         DEPLOYMENT_COLOR=DEPLOYMENT_COLOR,
-                         CONFIDENCE_THRESHOLD=CONFIDENCE_THRESHOLD,
-                         timestamp=datetime.now().timestamp())
+                           classes=SELECTED_CLASSES,
+                           CONFIDENCE_THRESHOLD=CONFIDENCE_THRESHOLD,
+                           timestamp=datetime.now().timestamp())
 
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-#@app.route('/health')
-#def health():
-    """
-    Returns 200 only when inference is ready, otherwise 503.
-    """
-#    if is_ready:
-#        return jsonify({"status": "ready", "instance_id": INSTANCE_ID}), 200
-#    else:
-#        return jsonify({"status": "loading", "instance_id": INSTANCE_ID}), 503
-
 
 # SocketIO
 @socketio.on('connect')
@@ -265,17 +225,7 @@ def handle_connect(_):
     if is_ready:
         emit('stats', stats)
 
-@socketio.on('request_deployment_status')
-def handle_deployment_status(_):
-    emit('deployment_status', {"active": DEPLOYMENT_COLOR})
-
-@app.route("/deployment_status")
-def deployment_status():
-    return jsonify({"active": DEPLOYMENT_COLOR})
-
-
 # Main
 if __name__ == "__main__":
-    if IS_ACTIVE:
-        threading.Thread(target=init_inference, daemon=True).start()
+    threading.Thread(target=init_inference, daemon=True).start()
     socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
