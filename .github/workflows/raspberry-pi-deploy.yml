@@ -82,7 +82,7 @@ jobs:
             docker compose down || true
 
             # Recreate app and nginx with the latest image
-            #docker compose up -d --build nginx app
+            docker compose up -d --build app
 
             echo "$(date +%s),docker_prune_start" >> ci_logs/ci_timing.log
             docker image prune -af
