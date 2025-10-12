@@ -20,7 +20,6 @@ jobs:
           name: Log checkout time
           command: |
             echo "$(date +%s),checkout_start" >> ci_logs/ci_timing_build.log
-            # checkout happens automatically via the previous step
             echo "$(date +%s),checkout_end" >> ci_logs/ci_timing_build.log
 
       - run:
@@ -60,6 +59,14 @@ jobs:
           at: .
 
       - run:
+          name: Setup SSH Key
+          command: |
+            mkdir -p ~/.ssh
+            echo "$PI_SSH_KEY" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -p $PI_PORT $PI_HOST >> ~/.ssh/known_hosts
+
+      - run:
           name: Initialize deploy log
           command: |
             mkdir -p ci_logs
@@ -69,23 +76,26 @@ jobs:
       - run:
           name: Deploy to Raspberry Pi
           command: |
-            ssh -o StrictHostKeyChecking=no -p $PI_PORT $PI_USER@$PI_HOST <<'EOF'
+            ssh -o StrictHostKeyChecking=no -p $PI_PORT $PI_USER@$PI_HOST "
               set -e
               cd /home/hshl/VisionOnEdge
 
-              echo "$(date +%s),docker_pull_start" >> ci_logs/ci_timing_deploy.log
+              # Existing remote log directory used here
+              echo \$(date +%s),deploy_start >> logs/ci_timing_deploy.log
+
+              echo \$(date +%s),docker_pull_start >> logs/ci_timing_deploy.log
               docker compose pull
-              echo "$(date +%s),docker_pull_end" >> ci_logs/ci_timing_deploy.log
+              echo \$(date +%s),docker_pull_end >> logs/ci_timing_deploy.log
 
               docker compose down || true
               docker compose up -d --build app
 
-              echo "$(date +%s),docker_prune_start" >> ci_logs/ci_timing_deploy.log
+              echo \$(date +%s),docker_prune_start >> logs/ci_timing_deploy.log
               docker image prune -af
-              echo "$(date +%s),docker_prune_end" >> ci_logs/ci_timing_deploy.log
+              echo \$(date +%s),docker_prune_end >> logs/ci_timing_deploy.log
 
-              echo "$(date +%s),deploy_end" >> ci_logs/ci_timing_deploy.log
-            EOF
+              echo \$(date +%s),deploy_end >> logs/ci_timing_deploy.log
+            "
 
       - store_artifacts:
           path: ci_logs/ci_timing_deploy.log
