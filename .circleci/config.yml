@@ -59,6 +59,14 @@ jobs:
           at: .
 
       - run:
+          name: Setup SSH Key from Environment Variable
+          command: |
+            mkdir -p ~/.ssh
+            echo "$PI_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-keyscan -p $PI_PORT $PI_HOST >> ~/.ssh/known_hosts
+
+      - run:
           name: Initialize deploy log
           command: |
             mkdir -p ci_logs
@@ -68,7 +76,7 @@ jobs:
       - run:
           name: Deploy to Raspberry Pi (Pull and Run)
           command: |
-            ssh -o StrictHostKeyChecking=no -i /home/circleci/.ssh/id_rsa -p $PI_PORT $PI_USER@$PI_HOST "
+            ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa -p $PI_PORT $PI_USER@$PI_HOST "
               set -e
               cd /home/hshl/VisionOnEdge
 
