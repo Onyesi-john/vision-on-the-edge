@@ -2,9 +2,16 @@ pipeline {
     agent any
 
     environment {
+        // Docker Hub info
         DOCKER_IMAGE = 'latest'
         DOCKERHUB_USERNAME = 'oyinc'
         DOCKERHUB_REPO = 'waste_detection'
+
+        // Raspberry Pi connection via ngrok
+        // ⚠️ Update these when ngrok restarts unless you have a static tunnel
+        PI_HOST = '6.tcp.eu.ngrok.io'
+        PI_PORT = '13008'
+        PI_USER = 'hshl'
     }
 
     stages {
@@ -12,7 +19,6 @@ pipeline {
         stage('Initialize Logs') {
             steps {
                 script {
-                    // Create ci_logs folder and initialize log file
                     sh '''
                         mkdir -p ci_logs
                         echo "ci_timing log for Jenkins run $(date)" > ci_logs/ci_timing.log
@@ -22,54 +28,86 @@ pipeline {
             }
         }
 
-        stage('Check Docker & Enable Buildx') {
-            steps {
-                script {
-                    sh '''
-                        echo "$(date +%s),buildx_start" >> ci_logs/ci_timing.log
-                        docker version
-                        export DOCKER_CLI_EXPERIMENTAL=enabled
-                        docker buildx create --name mybuilder --use || true
-                        docker buildx inspect mybuilder --bootstrap
-                        echo "$(date +%s),buildx_done" >> ci_logs/ci_timing.log
-                    '''
-                }
-            }
-        }
-
         stage('Login to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'oyinc-docker', 
-                                                 usernameVariable: 'DOCKER_USER', 
-                                                 passwordVariable: 'DOCKER_PASS')]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'oyinc-docker',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
                     sh '''
                         echo "$(date +%s),docker_login_start" >> ci_logs/ci_timing.log
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                         echo "$(date +%s),docker_login_done" >> ci_logs/ci_timing.log
                     '''
                 }
             }
         }
 
-        stage('Build & Push Multi-Arch Image') {
+        stage('Build and Push ARM64 Docker Image') {
             steps {
                 script {
                     sh '''
-                        echo "$(date +%s),docker_build_push_start" >> ci_logs/ci_timing.log
-                        docker buildx build --platform linux/arm/v7,linux/arm64,linux/amd64 \
+                        echo "$(date +%s),docker_build_start" >> ci_logs/ci_timing.log
+
+                        # Build directly for Raspberry Pi architecture
+                        docker build \
+                            --build-arg TARGETARCH=arm64 \
                             -t ${DOCKERHUB_USERNAME}/${DOCKERHUB_REPO}:${DOCKER_IMAGE} \
-                            --push .
-                        echo "$(date +%s),docker_build_push_done" >> ci_logs/ci_timing.log
+                            -f app/Dockerfile app/
+
+                        echo "$(date +%s),docker_build_done" >> ci_logs/ci_timing.log
+                        
+                        echo "$(date +%s),docker_push_start" >> ci_logs/ci_timing.log
+                        docker push ${DOCKERHUB_USERNAME}/${DOCKERHUB_REPO}:${DOCKER_IMAGE}
+                        echo "$(date +%s),docker_push_done" >> ci_logs/ci_timing.log
                     '''
                 }
             }
         }
 
+        stage('Deploy to Raspberry Pi via ngrok') {
+            steps {
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'pi-ssh-key',
+                    keyFileVariable: 'SSH_KEY_FILE'
+                )]) {
+                    script {
+                        sh '''
+                            echo "$(date +%s),deploy_start" >> ci_logs/ci_timing.log
+
+                            ssh -i $SSH_KEY_FILE -p $PI_PORT -o StrictHostKeyChecking=no $PI_USER@$PI_HOST '
+                                set -e
+                                cd /home/hshl/VisionOnEdge || exit 1
+
+                                mkdir -p ci_logs
+                                echo "$(date +%s),remote_deploy_start" >> ci_logs/ci_timing_deploy.log
+
+                                echo "$(date +%s),docker_pull_start" >> ci_logs/ci_timing_deploy.log
+                                docker compose pull
+                                echo "$(date +%s),docker_pull_end" >> ci_logs/ci_timing_deploy.log
+
+                                docker compose down || true
+                                docker compose up -d app
+
+                                echo "$(date +%s),docker_prune_start" >> ci_logs/ci_timing_deploy.log
+                                docker image prune -af
+                                echo "$(date +%s),docker_prune_end" >> ci_logs/ci_timing_deploy.log
+
+                                echo "$(date +%s),remote_deploy_end" >> ci_logs/ci_timing_deploy.log
+                            '
+
+                            echo "$(date +%s),deploy_done" >> ci_logs/ci_timing.log
+                        '''
+                    }
+                }
+            }
+        }
     }
 
     post {
         always {
-            // Archive the timing log for download
+            // Archive build & deploy logs
             archiveArtifacts artifacts: 'ci_logs/ci_timing.log', fingerprint: true
         }
     }
