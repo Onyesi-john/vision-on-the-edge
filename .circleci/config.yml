@@ -2,7 +2,7 @@ version: 2.1
 
 executors:
   arm_executor:
-    machine: true  # Enables privileged mode for QEMU multi-arch builds
+    machine: true  # Required for Docker buildx + QEMU multi-arch
 
 jobs:
   build_and_push_docker_image:
@@ -10,56 +10,92 @@ jobs:
     steps:
       - checkout
 
-      # Initialize timing log
       - run:
-          name: Initialize timing log
+          name: Initialize build log
           command: |
             mkdir -p ci_logs
-            echo "ci_timing log for CircleCI run $(date)" > ci_logs/ci_timing.log
-            echo "$(date +%s),checkout_done" >> ci_logs/ci_timing.log
+            echo "circleci_timing build log for run $(date)" > ci_logs/ci_timing_build.log
 
-      # Start Docker service
       - run:
-          name: Start Docker Service
+          name: Log checkout time
           command: |
+            echo "$(date +%s),checkout_start" >> ci_logs/ci_timing_build.log
+            # checkout happens automatically via the previous step
+            echo "$(date +%s),checkout_end" >> ci_logs/ci_timing_build.log
+
+      - run:
+          name: Build and push ARM64 image
+          command: |
+            echo "$(date +%s),build_start" >> ci_logs/ci_timing_build.log
+
             sudo systemctl start docker
             sleep 5
-            echo "$(date +%s),docker_service_started" >> ci_logs/ci_timing.log
-
-      # Enable QEMU
-      - run:
-          name: Enable QEMU for Multi-Arch Builds
-          command: |
             docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-            echo "$(date +%s),qemu_setup_done" >> ci_logs/ci_timing.log
-
-      # Authenticate with Docker Hub
-      - run:
-          name: Authenticate with Docker Hub
-          command: |
-            echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-            echo "$(date +%s),docker_login_done" >> ci_logs/ci_timing.log
-
-      # Build and Push Docker Image
-      - run:
-          name: Build and Push Docker Image for Raspberry Pi
-          command: |
-            echo "$(date +%s),docker_build_start" >> ci_logs/ci_timing.log
             docker buildx create --use
+
+            echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin docker.io
+
             docker buildx build \
               --platform linux/arm64 \
-              -t $DOCKERHUB_USERNAME/streamapp:latest \
+              --push \
+              -t $DOCKERHUB_USERNAME/edge_deployment:latest \
               -f app/Dockerfile \
-              app/ \
-              --push
-            echo "$(date +%s),docker_build_end" >> ci_logs/ci_timing.log
-      # Upload timing log as artifact
+              app/
+
+            echo "$(date +%s),build_end" >> ci_logs/ci_timing_build.log
+
       - store_artifacts:
-          path: ci_logs/ci_timing.log
-          destination: ci_timing.log
+          path: ci_logs/ci_timing_build.log
+          destination: ci_timing_build.log
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ci_logs/ci_timing_build.log
+
+  deploy_to_raspberry_pi:
+    executor: arm_executor
+    steps:
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Initialize deploy log
+          command: |
+            mkdir -p ci_logs
+            echo "circleci_timing deploy log for run $(date)" > ci_logs/ci_timing_deploy.log
+            echo "$(date +%s),deploy_start" >> ci_logs/ci_timing_deploy.log
+
+      - run:
+          name: Deploy to Raspberry Pi
+          command: |
+            ssh -o StrictHostKeyChecking=no -p $PI_PORT $PI_USER@$PI_HOST <<'EOF'
+              set -e
+              cd /home/hshl/VisionOnEdge
+
+              echo "$(date +%s),docker_pull_start" >> ci_logs/ci_timing_deploy.log
+              docker compose pull
+              echo "$(date +%s),docker_pull_end" >> ci_logs/ci_timing_deploy.log
+
+              docker compose down || true
+              docker compose up -d --build app
+
+              echo "$(date +%s),docker_prune_start" >> ci_logs/ci_timing_deploy.log
+              docker image prune -af
+              echo "$(date +%s),docker_prune_end" >> ci_logs/ci_timing_deploy.log
+
+              echo "$(date +%s),deploy_end" >> ci_logs/ci_timing_deploy.log
+            EOF
+
+      - store_artifacts:
+          path: ci_logs/ci_timing_deploy.log
+          destination: ci_timing_deploy.log
 
 workflows:
   version: 2
   build_and_deploy:
     jobs:
       - build_and_push_docker_image
+      - deploy_to_raspberry_pi:
+          requires:
+            - build_and_push_docker_image
