@@ -74,27 +74,27 @@ jobs:
             echo "$(date +%s),deploy_start" >> ci_logs/ci_timing_deploy.log
 
       - run:
-          name: Deploy to Raspberry Pi
+          name: Deploy to Raspberry Pi (Pull and Run)
           command: |
             ssh -o StrictHostKeyChecking=no -p $PI_PORT $PI_USER@$PI_HOST "
               set -e
               cd /home/hshl/VisionOnEdge
 
-              # Existing remote log directory used here
-              echo \$(date +%s),deploy_start >> logs/ci_timing_deploy.log
+              # Log start in remote ci_logs directory
+              echo \$(date +%s),deploy_start >> ci_logs/ci_timing_deploy.log
 
-              echo \$(date +%s),docker_pull_start >> logs/ci_timing_deploy.log
+              echo \$(date +%s),docker_pull_start >> ci_logs/ci_timing_deploy.log
               docker compose pull
-              echo \$(date +%s),docker_pull_end >> logs/ci_timing_deploy.log
+              echo \$(date +%s),docker_pull_end >> ci_logs/ci_timing_deploy.log
 
               docker compose down || true
-              docker compose up -d --build app
+              docker compose up -d app
 
-              echo \$(date +%s),docker_prune_start >> logs/ci_timing_deploy.log
+              echo \$(date +%s),docker_prune_start >> ci_logs/ci_timing_deploy.log
               docker image prune -af
-              echo \$(date +%s),docker_prune_end >> logs/ci_timing_deploy.log
+              echo \$(date +%s),docker_prune_end >> ci_logs/ci_timing_deploy.log
 
-              echo \$(date +%s),deploy_end >> logs/ci_timing_deploy.log
+              echo \$(date +%s),deploy_end >> ci_logs/ci_timing_deploy.log
             "
 
       - store_artifacts:
