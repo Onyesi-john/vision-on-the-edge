@@ -59,12 +59,18 @@ jobs:
           at: .
 
       - run:
-          name: Setup SSH Key from Environment Variable
+          name: Setup SSH Key from Base64 Environment Variable
           command: |
             mkdir -p ~/.ssh
-            echo "$PI_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+            echo "$PI_SSH_KEY_B64" | base64 --decode > ~/.ssh/id_rsa
             chmod 600 ~/.ssh/id_rsa
             ssh-keyscan -p $PI_PORT $PI_HOST >> ~/.ssh/known_hosts
+
+            # Optional sanity check
+            echo "SSH key header:"
+            head -1 ~/.ssh/id_rsa
+            echo "File type:"
+            file ~/.ssh/id_rsa
 
       - run:
           name: Initialize deploy log
