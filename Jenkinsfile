@@ -10,7 +10,7 @@ pipeline {
         // Raspberry Pi connection via ngrok
         // ⚠️ Update these when ngrok restarts unless you have a static tunnel
         PI_HOST = '6.tcp.eu.ngrok.io'
-        PI_PORT = '13008'
+        PI_PORT = '12845'
         PI_USER = 'hshl'
     }
 
