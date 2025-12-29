@@ -2,7 +2,7 @@ version: 2.1
 
 executors:
   arm_executor:
-    machine: true  # Required for Docker buildx + QEMU multi-arch
+    machine: true  # This is Required for Docker buildx + QEMU multi-arch
 
 jobs:
   build_and_push_docker_image:

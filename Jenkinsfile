@@ -7,7 +7,7 @@ pipeline {
         DOCKERHUB_USERNAME = 'oyinc'
         DOCKERHUB_REPO = 'waste_detection'
 
-        // Raspberry Pi connection via ngrok (update when tunnel changes)
+        // Raspberry Pi connection 
         PI_HOST = '6.tcp.eu.ngrok.io'
         PI_PORT = '12845'
         PI_USER = 'hshl'
@@ -87,7 +87,7 @@ pipeline {
 
     post {
         always {
-            echo "📦 Archiving timing log..."
+            echo "Archiving timing log..."
             archiveArtifacts artifacts: 'ci_logs/ci_timing.log', fingerprint: true
         }
     }
