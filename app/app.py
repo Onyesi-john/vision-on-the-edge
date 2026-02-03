@@ -136,7 +136,7 @@ def infer_thread():
                 cls_id = int(box.cls[0])
                 label = model.names[cls_id]
             # CHANGE THIS COLOR TO DEMONSTRATE
-                box_color = (0, 0, 255)   # RED (BGR)
+                box_color = (255, 0, 0)   # RED (BGR)
                 text_color = (0, 0, 255)
 
                 cv2.rectangle(annotated, (x1, y1), (x2, y2), box_color, 2)
