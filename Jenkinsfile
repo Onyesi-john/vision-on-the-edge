@@ -8,8 +8,8 @@ pipeline {
         DOCKERHUB_REPO = 'waste_detection'
 
         // Raspberry Pi connection 
-        PI_HOST = '6.tcp.eu.ngrok.io'
-        PI_PORT = '12845'
+        PI_HOST = '7.tcp.eu.ngrok.io'
+        PI_PORT = '10220'
         PI_USER = 'hshl'
     }
 

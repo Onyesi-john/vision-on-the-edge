@@ -191,7 +191,7 @@ def generate_frames():
 
         fps_text = f"FPS: {stats.get('fps', 0):.1f}"
         cv2.putText(frame, fps_text, (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
 
         ret, jpeg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
         if not ret:
