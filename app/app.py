@@ -127,7 +127,30 @@ def infer_thread():
                 label = model.names[cls_id]
                 current_objects[label] = current_objects.get(label, 0) + 1
 
-        annotated = results[0].plot() if len(results) > 0 else frame
+        #annotated = results[0].plot() if len(results) > 0 else frame
+        annotated = frame.copy()
+
+        for r in results:
+            for box in r.boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                cls_id = int(box.cls[0])
+                label = model.names[cls_id]
+            # CHANGE THIS COLOR TO DEMONSTRATE
+                box_color = (0, 0, 255)   # RED (BGR)
+                text_color = (0, 0, 255)
+
+                cv2.rectangle(annotated, (x1, y1), (x2, y2), box_color, 2)
+
+                cv2.putText(
+                annotated,
+                label,
+                (x1, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                text_color,
+                2
+        )
+
 
         with lock:
             annotated_frame = annotated
