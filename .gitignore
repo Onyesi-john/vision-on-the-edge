@@ -1,4 +1,56 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
 venv/
 env/
 .venv/
+
+# Logs
+*.log
 ci_logs/
+
+# IDEs / Editors
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+
+# Media / Datasets / Models
+datasets/
+data/
+models/
+weights/
+*.pt
+*.h5
+*.onnx
+*.ckpt
+*.pickle
+*.pkl
+
+# Archives
+*.zip
+*.tar
+*.gz
+
+# Videos / Images (if not needed at runtime)
+*.mp4
+*.avi
+*.mov
+*.jpg
+*.png
