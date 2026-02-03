@@ -8,8 +8,8 @@ pipeline {
         DOCKERHUB_REPO = 'edge_deployment'
 
         // Raspberry Pi connection 
-        PI_HOST = '7.tcp.eu.ngrok.io'
-        PI_PORT = '11760'
+        PI_HOST = '5.tcp.eu.ngrok.io'
+        PI_PORT = '19221'
         PI_USER = 'hshl'
     }
 
