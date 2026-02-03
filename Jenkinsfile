@@ -5,7 +5,7 @@ pipeline {
         // Docker Hub info
         DOCKER_IMAGE = 'latest'
         DOCKERHUB_USERNAME = 'oyinc'
-        DOCKERHUB_REPO = 'edge_deployment'
+        DOCKERHUB_REPO = 'waste_detection'
 
         // Raspberry Pi connection 
         PI_HOST = '5.tcp.eu.ngrok.io'
