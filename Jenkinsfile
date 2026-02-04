@@ -9,7 +9,7 @@ pipeline {
 
         // Raspberry Pi connection 
         PI_HOST = '5.tcp.eu.ngrok.io'
-        PI_PORT = '19221'
+        PI_PORT = '19996'
         PI_USER = 'hshl'
     }
 
