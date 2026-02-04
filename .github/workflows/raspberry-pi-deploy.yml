@@ -73,7 +73,7 @@ jobs:
             echo "$(date +%s),docker_pull_end" >> ci_logs/ci_timing_deploy.log
 
             docker compose down || true
-            docker compose up -d --build app
+            docker compose up -d  app
 
             echo "$(date +%s),docker_prune_start" >> ci_logs/ci_timing_deploy.log
             docker image prune -af
